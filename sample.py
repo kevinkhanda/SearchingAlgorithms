@@ -114,6 +114,11 @@ class Spaceship:
             self.has_bomb = False
             self.route.append("M " + position)
 
+    def bomb_position(self, position):
+        if self.has_bomb:
+            self.has_bomb = False
+            return "M " + position
+
 
 def choose_random_direction(dirs):
     key, value = random.choice(list(dirs.items()))
@@ -280,7 +285,10 @@ def result_for_backtraking(trace_stack):
 
 
 # A-star searching algorithm
-def a_star_search(map_tiles):
+# In A-star spaceship is not allowed to die, so it is based on tactics
+# not to go in critical positions
+# Bomb is firing in this algorithm, but I had a problems with showing this info
+def a_star_search(map_tiles, spaceship):
     start = "0 0 0"  # initial position
     goal = choose_smallest_goal(map_tiles)  # choose shortest trace (in case if there
     # is more that one Planet)
@@ -305,11 +313,26 @@ def a_star_search(map_tiles):
                 opened.add(neighbour)
             elif tentative_g_score >= g_score[neighbour]:
                 continue
-
-            parent_map[neighbour] = current
-            g_score[neighbour] = tentative_g_score
-            f_score[neighbour] = g_score[neighbour] + cost_estimation(neighbour, goal)
-    return closed
+            if neighbour in map_tiles:
+                if map_tiles[neighbour] != "P":  # if neighbour node is critical, don't go
+                    parent_map[neighbour] = current
+                    g_score[neighbour] = tentative_g_score
+                    f_score[neighbour] = 100000
+                    if map_tiles[neighbour] == "K":
+                        if spaceship.has_bomb:
+                            spaceship.bomb_position(neighbour)
+                            map_tiles.pop(neighbour)
+                            g_score[neighbour] = tentative_g_score
+                            f_score[neighbour] = g_score[neighbour] + cost_estimation(neighbour, goal)
+                else:
+                    parent_map[neighbour] = current
+                    g_score[neighbour] = tentative_g_score
+                    f_score[neighbour] = g_score[neighbour] + cost_estimation(neighbour, goal)
+            else:
+                parent_map[neighbour] = current
+                g_score[neighbour] = tentative_g_score
+                f_score[neighbour] = g_score[neighbour] + cost_estimation(neighbour, goal)
+    return "No paths were found."
 
 
 def choose_smallest_goal(map_tiles):
@@ -392,6 +415,15 @@ def reconstruct_path(parent_map, current_node):
     return total_path
 
 
+def result_for_a_star(trace_list):
+    if type(trace_list) is str:
+        print(trace_list)
+    else:
+        print("The length of trace is " + str(len(trace_list)))
+        for i in reversed(trace_list):
+            print(i)
+
+
 # Demonstrations
 # Case 1
 # Random search
@@ -412,4 +444,6 @@ result_for_backtraking(result_bt)
 # Case 3
 # A-star search
 print("\nRunning demonstration for A-star searching algorithm: ")
-print(a_star_search(map_object.tiles))
+ship = Spaceship()
+trace = a_star_search(new_map.tiles, ship)
+result_for_a_star(trace)
