@@ -119,29 +119,6 @@ def choose_random_direction(dirs):
     return key
 
 
-# Method for excluding prohibited directions from allowed moves
-def slice_dic(d, s):
-    return {k: v for k, v in d.items() if not k.startswith(s)}
-
-
-# Function is checking current position so that spaceship won't be able to go out of bounds.
-def check_allowed_positions(spaceship):
-    allowed_moves = directions
-    if spaceship.x == 0:
-        allowed_moves = slice_dic(allowed_moves, "back")
-    if spaceship.x == 99:
-        allowed_moves = slice_dic(allowed_moves, "front")
-    if spaceship.y == 0:
-        allowed_moves = slice_dic(allowed_moves, "down")
-    if spaceship.y == 99:
-        allowed_moves = slice_dic(allowed_moves, "up")
-    if spaceship.z == 0:
-        allowed_moves = slice_dic(allowed_moves, "left")
-    if spaceship.z == 99:
-        allowed_moves = slice_dic(allowed_moves, "right")
-    return allowed_moves
-
-
 # In some rare cases this algorithm is not able to find a path
 # For example, in case when B/K (0, 1, 0) and B/K (1, 0, 0)
 # And Planets are far away, for example (45, 60, 90)
@@ -177,6 +154,29 @@ def random_search(map_field):
     return paths
 
 
+# Method for excluding prohibited directions from allowed moves
+def slice_dic(d, s):
+    return {k: v for k, v in d.items() if not k.startswith(s)}
+
+
+# Function is checking current position so that spaceship won't be able to go out of bounds.
+def check_allowed_positions(spaceship):
+    allowed_moves = directions
+    if spaceship.x == 0:
+        allowed_moves = slice_dic(allowed_moves, "back")
+    if spaceship.x == 99:
+        allowed_moves = slice_dic(allowed_moves, "front")
+    if spaceship.y == 0:
+        allowed_moves = slice_dic(allowed_moves, "down")
+    if spaceship.y == 99:
+        allowed_moves = slice_dic(allowed_moves, "up")
+    if spaceship.z == 0:
+        allowed_moves = slice_dic(allowed_moves, "left")
+    if spaceship.z == 99:
+        allowed_moves = slice_dic(allowed_moves, "right")
+    return allowed_moves
+
+
 def result_for_random_search(result_map):
     result = random_search(result_map)
     if len(result) == 0:
@@ -202,6 +202,9 @@ def result_for_random_search(result_map):
 # is surrounded by Black holes/Krakens from
 # the lower tile, right, left and back tiles.
 # (Because algorithm only runs in three directions)
+#
+# This algorithm is not supposed to return the smallest trace to Planet.
+# Just the first one that appears
 def backtracking_search(map_field):
     result_dfs = dfs(map_field)
     current = result_dfs[0]
@@ -220,18 +223,18 @@ def backtracking_search(map_field):
 def adjacent_nodes(tile):
     location = tile.split()
     points = [int(a) for a in location]
-    x = points[0] + 1
-    y = points[1] + 1
-    z = points[2] + 1
+    x = points[0]
+    y = points[1]
+    z = points[2]
     front = None
     up = None
     right = None
     if not x >= 100:
-        front = " ".join([str(x), str(y - 1), str(z - 1)])
+        front = " ".join([str(x + 1), str(y), str(z)])
     if not y >= 100:
-        up = " ".join([str(x - 1), str(y), str(z - 1)])
+        up = " ".join([str(x), str(y + 1), str(z)])
     if not z >= 100:
-        right = " ".join([str(x - 1), str(y - 1), str(z)])
+        right = " ".join([str(x), str(y), str(z + 1)])
 
     results = [front, up, right]
     return map(lambda b: b is not None, results), results
@@ -274,18 +277,85 @@ def result_for_backtraking(trace_stack):
         while not trace_stack.is_empty():
             print(trace_stack.pop())
 
+
+# A* searching algorithm
+def a_star_search(map_tiles):
+    start = "0 0 0"  # initial position
+    goal = choose_smallest_goal(map_tiles)  # choose shortest trace (in case if there is more that one Planet)
+    closed = set()  # set for nodes that were already visited
+    opened = set()
+    opened.add(start)
+    parent_map = {}  # will contain the most efficient previous step
+    g_score = {start: 0}  # will contain the cost of going from some node to another
+    f_score = {start: cost_estimation(start, goal)}
+    while len(opened) != 0:
+        current = smallest_node(opened, f_score)
+        if current == goal:
+            return reconstruct_path(parent_map, current)
+
+
+def choose_smallest_goal(map_tiles):
+    least_trace = None
+    chosen_tile = ""
+    planets = []
+    for i in map_tiles:
+        if map_tiles[i] == "P":
+            planets.append(i)
+    for j in planets:
+        location = j.split()
+        points = [int(a) for a in location]
+        if least_trace is None or sum(points) + 1 < least_trace:
+            least_trace = sum(points) + 1
+            chosen_tile = j
+    return chosen_tile
+
+
+# Function that estimates heuristic value for node
+def cost_estimation(start, goal):
+    start_location = start.split()
+    start_points = [int(a) for a in start_location]
+    goal_location = goal.split()
+    goal_points = [int(b) for b in goal_location]
+    subtraction = [i - j for i, j in zip(goal_points, start_points)]
+    return sum(subtraction)
+
+
+def smallest_node(node_set, f_map):
+    smallest = None
+    chosen_node = ""
+    for i in node_set:
+        if smallest is None or f_map[i] < smallest:
+            smallest = f_map[i]
+            chosen_node = i
+    return chosen_node
+
+
+def reconstruct_path(parent_map, current_node):
+    total_path = [current_node]
+    while current_node in parent_map.keys():
+        current_node = parent_map[current_node]
+        total_path.append(current_node)
+    return total_path
+
+
 # Demonstrations
 # Case 1
 # Random search
 print("Running demonstration for Random search: ")
 map_object = Map()
 map_object.build_full_dictionary()  # including adjacent tiles
-result_for_random_search(map_object)
+# result_for_random_search(map_object)
 
 # Case 2
 # Backtracking search
+# Trace always will be "P".x + "P".y + "P".x + 1
 print("\nRunning demonstration for Backtracking search: ")
 new_map = Map()
 new_map.build_tile_dictionary()  # not including adjacent tiles
 result_bt = backtracking_search(new_map)
 result_for_backtraking(result_bt)
+
+# Case 3
+# A-star search
+print(choose_smallest_goal(new_map.tiles))
+print(cost_estimation("0 0 0", "10 10 10"))
