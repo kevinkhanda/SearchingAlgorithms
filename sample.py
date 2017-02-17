@@ -117,7 +117,7 @@ class Spaceship:
     def bomb_position(self, position):
         if self.has_bomb:
             self.has_bomb = False
-            return "M " + position
+            print("M " + position)
 
 
 def choose_random_direction(dirs):
@@ -154,7 +154,7 @@ def random_search(map_field):
             if current_tile in options:
                 break
 
-        # spaceship arrived on a planet then save it into dictionary and return
+        # if spaceship arrived on a planet then save it into dictionary and return
         if current_tile == "P":
             paths[len(spaceship.route)] = spaceship
     return paths
@@ -190,12 +190,12 @@ def result_for_random_search(result_map):
               ", maybe you should increase number of trials?")
     else:
         spaceship_with_smallest_route = result[min(result.keys())]
-        trace = spaceship_with_smallest_route.route
-        trace_len = len(trace)
+        trace_route = spaceship_with_smallest_route.route
+        trace_len = len(trace_route)
         if not spaceship_with_smallest_route.has_bomb:
             trace_len -= 1
         print("The length of trace is " + str(trace_len))
-        for i in trace:
+        for i in trace_route:
             print(i)
 
 
@@ -288,13 +288,16 @@ def result_for_backtraking(trace_stack):
 # In A-star spaceship is not allowed to die, so it is based on tactics
 # not to go in critical positions
 # Bomb is firing in this algorithm, but I had a problems with showing this info
-def a_star_search(map_tiles, spaceship):
+def a_star_search(map_tiles, spaceship_star):
     start = "0 0 0"  # initial position
     goal = choose_smallest_goal(map_tiles)  # choose shortest trace (in case if there
     # is more that one Planet)
+    if goal == "":
+        return "No paths were found."
     closed = set()  # set for nodes that were already visited
-    opened = set()
+    opened = set()  # set for not visited nodes
     opened.add(start)
+    iterations = 0
     parent_map = {}  # will contain the most efficient previous step
     g_score = {start: 0}  # will contain the cost of going from some node to another
     f_score = {start: cost_estimation(start, goal)}
@@ -302,6 +305,8 @@ def a_star_search(map_tiles, spaceship):
         current = smallest_node(opened, f_score)
         if current == goal:
             return reconstruct_path(parent_map, current)
+        if current == "":
+            break
         opened.remove(current)
         closed.add(current)
         neighbours = upgraded_adjacent_nodes(current)
@@ -319,8 +324,8 @@ def a_star_search(map_tiles, spaceship):
                     g_score[neighbour] = tentative_g_score
                     f_score[neighbour] = 100000
                     if map_tiles[neighbour] == "K":
-                        if spaceship.has_bomb:
-                            spaceship.bomb_position(neighbour)
+                        if spaceship_star.has_bomb:
+                            spaceship_star.bomb_position(neighbour)
                             map_tiles.pop(neighbour)
                             g_score[neighbour] = tentative_g_score
                             f_score[neighbour] = g_score[neighbour] + cost_estimation(neighbour, goal)
@@ -332,6 +337,9 @@ def a_star_search(map_tiles, spaceship):
                 parent_map[neighbour] = current
                 g_score[neighbour] = tentative_g_score
                 f_score[neighbour] = g_score[neighbour] + cost_estimation(neighbour, goal)
+        iterations += 1
+        if iterations >= 100000:
+            break
     return "No paths were found."
 
 
@@ -352,6 +360,7 @@ def choose_smallest_goal(map_tiles):
 
 
 # Function that estimates heuristic value for node
+# I decided to use Euclidean distance for three-dimensional space
 def cost_estimation(start, goal):
     start_location = start.split()
     start_points = [int(a) for a in start_location]
@@ -362,6 +371,7 @@ def cost_estimation(start, goal):
                 (goal_points[2] - start_points[2]) ** 2)
 
 
+# Defining next node that will have lowest weight
 def smallest_node(node_set, f_map):
     smallest = None
     chosen_node = ""
@@ -407,6 +417,7 @@ def upgraded_adjacent_nodes(tile):
     return result_list
 
 
+# Reconstructing path in proper way
 def reconstruct_path(parent_map, current_node):
     total_path = [current_node]
     while current_node in parent_map.keys():
@@ -429,21 +440,24 @@ def result_for_a_star(trace_list):
 # Random search
 print("Running demonstration for Random search: ")
 map_object = Map()
-map_object.build_full_dictionary()  # including adjacent tiles
+map_object.build_tile_dictionary()
 result_for_random_search(map_object)
 
 # Case 2
 # Backtracking search
 # Trace always will be "P".x + "P".y + "P".x + 1
 print("\nRunning demonstration for Backtracking search: ")
-new_map = Map()
-new_map.build_tile_dictionary()  # not including adjacent tiles
-result_bt = backtracking_search(new_map)
+spaceship = Spaceship()
+backtracking_map = Map()
+backtracking_map.build_tile_dictionary()
+result_bt = backtracking_search(backtracking_map)
 result_for_backtraking(result_bt)
 
 # Case 3
 # A-star search
 print("\nRunning demonstration for A-star searching algorithm: ")
 ship = Spaceship()
-trace = a_star_search(new_map.tiles, ship)
+a_star_map = Map()
+a_star_map.build_tile_dictionary()
+trace = a_star_search(a_star_map.tiles, ship)
 result_for_a_star(trace)
