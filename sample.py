@@ -1,4 +1,5 @@
 import random
+from math import sqrt
 
 # This is my implementation of "Kraken Universe" game.
 # I decided not to use three-dimensional array and use a dictionary instead.
@@ -229,11 +230,11 @@ def adjacent_nodes(tile):
     front = None
     up = None
     right = None
-    if not x >= 100:
+    if not x + 1 >= 100:
         front = " ".join([str(x + 1), str(y), str(z)])
-    if not y >= 100:
+    if not y + 1 >= 100:
         up = " ".join([str(x), str(y + 1), str(z)])
-    if not z >= 100:
+    if not z + 1 >= 100:
         right = " ".join([str(x), str(y), str(z + 1)])
 
     results = [front, up, right]
@@ -263,7 +264,7 @@ def dfs(map_field):  # map field for "dfs" should only be build using "build_til
                 nodes = adjacent_nodes(tile)
                 bool_res, adjacent = list(nodes[0]), nodes[1]
                 for i, val in enumerate(adjacent):
-                    if bool_res[i] is True:
+                    if bool_res[i]:
                         stack.push(val)
                         parent_map[val] = tile
     return target, parent_map
@@ -278,10 +279,11 @@ def result_for_backtraking(trace_stack):
             print(trace_stack.pop())
 
 
-# A* searching algorithm
+# A-star searching algorithm
 def a_star_search(map_tiles):
     start = "0 0 0"  # initial position
-    goal = choose_smallest_goal(map_tiles)  # choose shortest trace (in case if there is more that one Planet)
+    goal = choose_smallest_goal(map_tiles)  # choose shortest trace (in case if there
+    # is more that one Planet)
     closed = set()  # set for nodes that were already visited
     opened = set()
     opened.add(start)
@@ -292,6 +294,22 @@ def a_star_search(map_tiles):
         current = smallest_node(opened, f_score)
         if current == goal:
             return reconstruct_path(parent_map, current)
+        opened.remove(current)
+        closed.add(current)
+        neighbours = upgraded_adjacent_nodes(current)
+        for neighbour in neighbours:
+            if neighbour in closed:
+                continue
+            tentative_g_score = g_score[current] + 1  # 1 is distance between two nodes
+            if neighbour not in opened:
+                opened.add(neighbour)
+            elif tentative_g_score >= g_score[neighbour]:
+                continue
+
+            parent_map[neighbour] = current
+            g_score[neighbour] = tentative_g_score
+            f_score[neighbour] = g_score[neighbour] + cost_estimation(neighbour, goal)
+    return closed
 
 
 def choose_smallest_goal(map_tiles):
@@ -316,8 +334,9 @@ def cost_estimation(start, goal):
     start_points = [int(a) for a in start_location]
     goal_location = goal.split()
     goal_points = [int(b) for b in goal_location]
-    subtraction = [i - j for i, j in zip(goal_points, start_points)]
-    return sum(subtraction)
+    return sqrt((goal_points[0] - start_points[0]) ** 2 +
+                (goal_points[1] - start_points[1]) ** 2 +
+                (goal_points[2] - start_points[2]) ** 2)
 
 
 def smallest_node(node_set, f_map):
@@ -328,6 +347,41 @@ def smallest_node(node_set, f_map):
             smallest = f_map[i]
             chosen_node = i
     return chosen_node
+
+
+# Returns all adjacent nodes of given node
+def upgraded_adjacent_nodes(tile):
+    location = tile.split()
+    points = [int(a) for a in location]
+    x = points[0]
+    y = points[1]
+    z = points[2]
+    front = None
+    back = None
+    up = None
+    down = None
+    right = None
+    left = None
+    if not x + 1 >= 100:
+        front = " ".join([str(x + 1), str(y), str(z)])
+    if not x - 1 < 0:
+        back = " ".join([str(x - 1), str(y), str(z)])
+    if not y + 1 >= 100:
+        up = " ".join([str(x), str(y + 1), str(z)])
+    if not y - 1 < 0:
+        down = " ".join([str(x), str(y - 1), str(z)])
+    if not z + 1 >= 100:
+        right = " ".join([str(x), str(y), str(z + 1)])
+    if not z - 1 < 0:
+        left = " ".join([str(x), str(y), str(z - 1)])
+
+    results = [front, back, up, down, right, left]
+    bool_list = list(map(lambda b: b is not None, results))
+    result_list = []
+    for i, val in enumerate(results):
+        if bool_list[i]:
+            result_list.append(val)
+    return result_list
 
 
 def reconstruct_path(parent_map, current_node):
@@ -344,7 +398,7 @@ def reconstruct_path(parent_map, current_node):
 print("Running demonstration for Random search: ")
 map_object = Map()
 map_object.build_full_dictionary()  # including adjacent tiles
-# result_for_random_search(map_object)
+result_for_random_search(map_object)
 
 # Case 2
 # Backtracking search
@@ -357,5 +411,5 @@ result_for_backtraking(result_bt)
 
 # Case 3
 # A-star search
-print(choose_smallest_goal(new_map.tiles))
-print(cost_estimation("0 0 0", "10 10 10"))
+print("\nRunning demonstration for A-star searching algorithm: ")
+print(a_star_search(map_object.tiles))
